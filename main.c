@@ -5,10 +5,12 @@ typedef struct symbol {
     // el caracgter en cuestion
     char character;
     // cuantas veces a parce este caraccter en el archivo
-    unsigned int frequency;
+    int frequency;
     // levar contando cuantos nodos vamos econtrando
-    unsigned int * len;
+    int * len;
     struct symbol * next; // node next list element
+    struct symbol * prev; // node next list element
+    int index;
 } Symbol;
 
 /**
@@ -16,12 +18,14 @@ typedef struct symbol {
  * @param c
  * @return
  */
-Symbol * new(char c){
+Symbol * new(char c,int index){
     Symbol * s = (Symbol *) malloc(sizeof(Symbol));
     s->next = NULL;
+    s->prev = NULL;
     s->len = NULL;
     s->frequency = 1;
     s->character = c;
+    s->index = index;
     return s;
 }
 
@@ -46,21 +50,22 @@ Symbol * last(Symbol * nav){
  * @param c = nuevo simbolo (char)
  * @return = retorna 1 si se inserto correctamente, 0 si no.
  */
-short int add(Symbol ** list,char c){
+short int add(Symbol ** list,Symbol * s){
     // si el padre es null, entonces, es nuestro primer elementro
     if(* list == NULL){
-        * list = new(c);
+        * list = s;
         // como es nuestro primer nodo, inciado la longitud de arreglo en 1
-        (*list)->len = (unsigned int *) malloc(sizeof(unsigned int));
+        (*list)->len = (int *) malloc(sizeof(int));
         *(*list)->len = 0;
         return 1;
     }
     // nos vamos al utlimo nodo
     Symbol * l = last(* list);
-    l->next = new(c);
+    l->next = s;
     // sumamos uno a la longitud y asignamos la direccion de memoria al siguiente nodo (para que sea el mismo contador en memoria)
-    (*(l->len))++;
+    (*l->len)++;
     l->next->len = l->len;
+    s->prev = l;
     return 1;
 }
 
@@ -75,7 +80,7 @@ Symbol * search(Symbol ** list,char c){
         return NULL;
     Symbol * nav = *list;
 
-    while(nav->next != NULL){
+    while(nav != NULL){
         if(nav->character == c){
             return nav;
         }
@@ -89,10 +94,89 @@ void printList(Symbol * nav){
         printf("\nLista vacia :O\n");
         return;
     }
-    while(nav->next != NULL){
-        printf("-- Caracter: '%c' => Frecuencia: %u\n",nav->character,nav->frequency);
+    while(nav != NULL){
+        printf("%d - Caracter: '%c' => Frecuencia: %u\n",nav->index,nav->character,nav->frequency);
         nav = nav->next;
     }
+}
+
+Symbol * subarray(Symbol * arr, int start, int max){
+    int len = max - start;
+    Symbol * newarr = (Symbol *) malloc(len * sizeof(Symbol));
+    for(int i = 0; i < len; i++){
+        newarr[i] = arr[start];
+        start++;
+    }
+    return newarr;
+}
+
+Symbol * shift(Symbol * nav){
+    if(nav->next != NULL){
+        Symbol * next = nav->next;
+        Symbol * prev = nav->prev;
+        next->prev = NULL;
+        (*(next->len))--;
+        return prev;
+    }
+    return nav = NULL;
+}
+
+Symbol * toArray(Symbol * nav){
+    Symbol * arr = (Symbol * ) malloc( (*(nav->len)) * sizeof (Symbol));
+    for(int i = 0; i < (*(nav->len)); i++){
+        arr[i] = *nav;
+        nav = nav->next;
+    }
+    return arr;
+}
+
+Symbol * merge(Symbol * left,Symbol * right, int nl,int nr) {
+    int k = 0, j = 0, len = nr - nl,index = 0;
+    Symbol * arr = (Symbol *) malloc(len * sizeof(Symbol));
+    while(k < nl && j < nr){
+        if(left[k].frequency <= right[j].frequency){
+            arr[index] = left[k];
+            k++;
+        } else {
+            arr[index] = right[j];
+            j++;
+        }
+        index++;
+    }
+
+    while(k < nl){
+        arr[index] = left[k];
+        k++;
+        index++;
+    }
+
+    while(j < nr){
+        arr[index] = right[j];
+        j++;
+        index++;
+    }
+    return arr;
+}
+
+void dispose(Symbol * list){
+    Symbol * l = last(list);
+
+}
+
+Symbol * mergeSort(Symbol * arr,int n) {
+    // el elemento mas sencillo
+    if (n == 1)
+        return arr;
+    int middle = n / 2;
+    int lenright = (n % 2) == 0 ? middle : middle + 1;
+
+    Symbol * left = subarray(arr, 0, middle);
+    Symbol * right = subarray(arr, middle, n);
+
+    Symbol * sortedLeft = mergeSort(left,middle);
+    Symbol * sortedRight = mergeSort(right,lenright);
+
+    return merge(sortedLeft,sortedRight,middle,lenright);
 }
 
 int main(int argc,char ** args) {
@@ -116,17 +200,28 @@ int main(int argc,char ** args) {
     Symbol * list = NULL;
     Symbol * symbol = NULL;
 
-    printf("leyendo caracteres");
     while((assci = fgetc(file)) != EOF){
         character = (char) assci;
         symbol = search(&list,character);
         if(symbol != NULL){
             symbol->frequency++;
         } else {
-            add(&list,character);
+            symbol = last(list);
+            add(&list, new(character,symbol != NULL ? symbol->index + 1 : 0));
+            symbol = NULL;
         }
     }
-    printf("longitud del arreglo: %d\n",*(list)->len);
-    printList(list);
+
+    int len = *(list->len);
+    printf("\nlongitud del arreglo: %d\n",len);
+    Symbol * simbolos = toArray(list);
+    for(int i = 0; i < len; i++){
+        Symbol s = simbolos[i];
+        printf("%d - Caracter: '%c' => Frecuencia: %u\n",s.index,s.character,s.frequency);
+
+    }
+
+    mergeSort(simbolos,len);
+
     return 0;
 }
