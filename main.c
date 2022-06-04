@@ -56,7 +56,7 @@ short int add(Symbol ** list,Symbol * s){
         * list = s;
         // como es nuestro primer nodo, inciado la longitud de arreglo en 1
         (*list)->len = (int *) malloc(sizeof(int));
-        *(*list)->len = 0;
+        *(*list)->len = 1;
         return 1;
     }
     // nos vamos al utlimo nodo
@@ -125,7 +125,10 @@ Symbol * toArray(Symbol * nav){
     Symbol * arr = (Symbol * ) malloc( (*(nav->len)) * sizeof (Symbol));
     for(int i = 0; i < (*(nav->len)); i++){
         arr[i] = *nav;
-        nav = nav->next;
+		if(nav->next!=NULL)
+			nav = nav->next;
+		else
+			nav=nav;
     }
     return arr;
 }
@@ -218,10 +221,9 @@ int main(int argc,char ** args) {
     for(int i = 0; i < len; i++){
         Symbol s = simbolos[i];
         printf("%d - Caracter: '%c' => Frecuencia: %u\n",s.index,s.character,s.frequency);
-
     }
 
-    mergeSort(simbolos,len);
+    //mergeSort(simbolos,len);
 
     return 0;
 }
