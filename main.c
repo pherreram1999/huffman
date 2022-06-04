@@ -109,45 +109,22 @@ Symbol * search(Symbol ** list,char c){
     return NULL;
 }
 
-void printList(Symbol * nav){
-    if(nav == NULL){
-        printf("\nLista vacia :O\n");
-        return;
-    }
-    printf("Lista de longitud: %d => \n",*(nav->len));
-    while(nav != NULL){
-        printf("%d - Caracter: '%c' => Frecuencia: %u => ascii: %d\n",nav->index,nav->character,nav->frequency,nav->ascii);
-        nav = nav->next;
-    }
-}
-
+/**
+ * Imprime un array de simbolos
+ * @param simbolos
+ * @param n
+ */
 void printArray(Symbol * simbolos,int n){
     for(int i = 0; i < n; i++){
-        printf("assci: %d \t|\tFrencuencia: %d\n",simbolos[i].ascii,simbolos[i].frequency);
+        printf("assci: %d \t|\tFrencuencia: %d \t|\t caracter: '%c'\n",simbolos[i].ascii,simbolos[i].frequency,simbolos[i].character);
     }
 }
 
-Symbol * subarray(Symbol * arr, int start, int max){
-    int len = max - start;
-    Symbol * newarr = (Symbol *) malloc(len * (sizeof(Symbol)) );
-    for(int i = 0; i < len; i++){
-        newarr[i] = arr[start];
-        start++;
-    }
-    return newarr;
-}
-
-Symbol * shift(Symbol * nav){
-    if(nav->next != NULL){
-        Symbol * next = nav->next;
-        Symbol * prev = nav->prev;
-        next->prev = NULL;
-        (*(next->len))--;
-        return prev;
-    }
-    return nav = NULL;
-}
-
+/**
+ * Convierte una lista en array
+ * @param nav
+ * @return
+ */
 Symbol * toArray(Symbol * nav){
     Symbol * arr = (Symbol * ) malloc( (*(nav->len)) * sizeof (Symbol));
     for(int i = 0; i < (*(nav->len)); i++){
@@ -159,44 +136,6 @@ Symbol * toArray(Symbol * nav){
         }
     }
     return arr;
-}
-
-Symbol * merge(Symbol * left,Symbol * right, int nl,int nr) {
-    int k = 0, j = 0, len = nr - nl,index = 0;
-    Symbol * arr = (Symbol *) malloc(len * sizeof(Symbol));
-    while(k < nl && j < nr){
-        if(left[k].frequency <= right[j].frequency){
-            arr[index] = left[k];
-            k++;
-        } else {
-            arr[index] = right[j];
-            j++;
-        }
-        index++;
-    }
-
-    while(k < nl){
-        arr[index] = left[k];
-        k++;
-        index++;
-    }
-
-    while(j < nr){
-        arr[index] = right[j];
-        j++;
-        index++;
-    }
-    return arr;
-}
-
-void dispose(Symbol * list){
-    Symbol * l = last(list);
-    while(l != NULL){
-        Symbol  * prev = l->prev;
-        prev->next = NULL;
-        free(l);
-        l = prev;
-    }
 }
 
 
@@ -227,64 +166,22 @@ void quickSort(Symbol * simbolos,int start,int final){
     }
 }
 
-Symbol smallSymbol(Symbol * arr, int n){
-    Symbol small = arr[0];
-    for (int i = 1; i < n; i++) {
-        // si la frencia del chico es mayor al elemento
-        // actual, entonces el elemento actual es mas chico
-        if(small.frequency >  arr[i].frequency){
-            small = arr[i];
-        }
-    }
-
-    // ahora vamos por el segun mas chico, descartando el que ya econtramos
-    return small;
-}
-
-Symbol * substract(Symbol * arr,int index,int n){
-    Symbol * newarr = (Symbol *) malloc((n - 1) * sizeof(Symbol));
-    Symbol s;
-    int i = 0;
-    int count = 0;
-    while(i < n){
-        if(i != index){
-            s = arr[count];
-            s.index = count;
-            newarr[count] = s;
-            count++;
-        }
-        i++;
-    }
-    s = newarr[0];
-    (*s.len)--;
-    free(arr);
-    return newarr;
-}
-
-
-
-int main(int argc,char ** args) {
-    if(argc != 2){
-        printf("\nPor favor propociona el path del archivo :|\n");
-        exit(1);
-    }
-
-    char * filename = args[1];
-    printf("\nfilename: %s\n",filename);
-
-    FILE * file = fopen(filename,"r");
+/**
+ * Lee un archivo y genera una lista con la frecuencia decada una de los caracteres
+ * @param path = directorio del archivo a leer
+ * @return
+ */
+Symbol * generarListaSimbolos(char * path){
+    FILE * file = fopen(path,"r");
     if(file == NULL){
         printf("No fue posible abrir el archivo");
-        exit(1);
+        return NULL;
     }
-
+    Symbol * list = NULL;
+    Symbol * symbol = NULL;
     int assci; // ascci number position
     char character; // char value to save
     int index;
-    // creamos nuestra list symbols
-    Symbol * list = NULL;
-    Symbol * symbol = NULL;
-
     while((assci = fgetc(file)) != EOF){
         character = (char) assci;
         symbol = search(&list,character);
@@ -297,6 +194,26 @@ int main(int argc,char ** args) {
             symbol = NULL;
         }
     }
+    return list;
+}
+
+
+
+int main(int argc,char ** args) {
+    if(argc != 2){
+        printf("\nPor favor propociona el path del archivo :|\n");
+        exit(1);
+    }
+
+    char * filename = args[1];
+
+    printf("\nfilename: %s\n",filename);
+    // creamos nuestra list symbols
+    Symbol * list = generarListaSimbolos(filename);
+    if(list == NULL){
+        printf("\nNO fue posible generar la lista, verique el path\n");
+        exit(1);
+    }
     Symbol * simbolos = toArray(list);
     int n =  *simbolos[0].len;
     quickSort(simbolos,0,n - 1);
@@ -306,3 +223,5 @@ int main(int argc,char ** args) {
 
     return 0;
 }
+
+
