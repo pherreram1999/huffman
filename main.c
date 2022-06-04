@@ -1,31 +1,51 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/**
+ * Structs para el los caracteres
+ */
 typedef struct symbol {
     // el caracgter en cuestion
     char character;
+    int ascii;
     // cuantas veces a parce este caraccter en el archivo
     int frequency;
     // levar contando cuantos nodos vamos econtrando
     int * len;
+    // para saber si este nodo ya sido contabilizadp
     struct symbol * next; // node next list element
     struct symbol * prev; // node next list element
     int index;
 } Symbol;
 
 /**
+ * Struct para el arbol
+ */
+
+typedef struct node {
+    Symbol * simbolo; // del padre que proviene
+    int peso; // la suam de sus pesos,
+    int bit;
+    int busy;
+    struct node * izq; // hijo izquierdo
+    struct node * der; // hijo derecho
+} Node;
+
+/**
  * Crea un nuevo nodo de la lista
  * @param c
  * @return
  */
-Symbol * new(char c,int index){
+Symbol * new(char c,int index,int  ascii){
     Symbol * s = (Symbol *) malloc(sizeof(Symbol));
+    s->index = index;
     s->next = NULL;
     s->prev = NULL;
     s->len = NULL;
     s->frequency = 1;
     s->character = c;
-    s->index = index;
+    s->ascii = ascii;
+
     return s;
 }
 
@@ -94,15 +114,22 @@ void printList(Symbol * nav){
         printf("\nLista vacia :O\n");
         return;
     }
+    printf("Lista de longitud: %d => \n",*(nav->len));
     while(nav != NULL){
-        printf("%d - Caracter: '%c' => Frecuencia: %u\n",nav->index,nav->character,nav->frequency);
+        printf("%d - Caracter: '%c' => Frecuencia: %u => ascii: %d\n",nav->index,nav->character,nav->frequency,nav->ascii);
         nav = nav->next;
+    }
+}
+
+void printArray(Symbol * simbolos,int n){
+    for(int i = 0; i < n; i++){
+        printf("assci: %d \t|\tFrencuencia: %d\n",simbolos[i].ascii,simbolos[i].frequency);
     }
 }
 
 Symbol * subarray(Symbol * arr, int start, int max){
     int len = max - start;
-    Symbol * newarr = (Symbol *) malloc(len * sizeof(Symbol));
+    Symbol * newarr = (Symbol *) malloc(len * (sizeof(Symbol)) );
     for(int i = 0; i < len; i++){
         newarr[i] = arr[start];
         start++;
@@ -125,10 +152,11 @@ Symbol * toArray(Symbol * nav){
     Symbol * arr = (Symbol * ) malloc( (*(nav->len)) * sizeof (Symbol));
     for(int i = 0; i < (*(nav->len)); i++){
         arr[i] = *nav;
-		if(nav->next!=NULL)
-			nav = nav->next;
-		else
-			nav=nav;
+        if(nav->next!=NULL){
+            nav = nav->next;
+        }else {
+            nav = nav;
+        }
     }
     return arr;
 }
@@ -163,24 +191,77 @@ Symbol * merge(Symbol * left,Symbol * right, int nl,int nr) {
 
 void dispose(Symbol * list){
     Symbol * l = last(list);
-
+    while(l != NULL){
+        Symbol  * prev = l->prev;
+        prev->next = NULL;
+        free(l);
+        l = prev;
+    }
 }
 
-Symbol * mergeSort(Symbol * arr,int n) {
-    // el elemento mas sencillo
-    if (n == 1)
-        return arr;
-    int middle = n / 2;
-    int lenright = (n % 2) == 0 ? middle : middle + 1;
 
-    Symbol * left = subarray(arr, 0, middle);
-    Symbol * right = subarray(arr, middle, n);
-
-    Symbol * sortedLeft = mergeSort(left,middle);
-    Symbol * sortedRight = mergeSort(right,lenright);
-
-    return merge(sortedLeft,sortedRight,middle,lenright);
+void swap(Symbol * a, Symbol * b){
+    Symbol aux = *a;
+    *a = *b;
+    *b = aux;
 }
+
+int partition(Symbol * simbolos,int start, int final){
+    Symbol  pivot = simbolos[final];
+    int i = (start - 1);
+    for(int j = start; j <= final - 1; j++){
+        if(simbolos[j].frequency < pivot.frequency){
+            i++;
+            swap(&simbolos[i],&simbolos[j]);
+        }
+    }
+    swap(&simbolos[i + 1],&simbolos[final]);
+    return i + 1;
+}
+
+void quickSort(Symbol * simbolos,int start,int final){
+    if(start < final){
+        int pi = partition(simbolos,start,final);
+        quickSort(simbolos,start, pi - 1);
+        quickSort(simbolos,pi + 1,final);
+    }
+}
+
+Symbol smallSymbol(Symbol * arr, int n){
+    Symbol small = arr[0];
+    for (int i = 1; i < n; i++) {
+        // si la frencia del chico es mayor al elemento
+        // actual, entonces el elemento actual es mas chico
+        if(small.frequency >  arr[i].frequency){
+            small = arr[i];
+        }
+    }
+
+    // ahora vamos por el segun mas chico, descartando el que ya econtramos
+    return small;
+}
+
+Symbol * substract(Symbol * arr,int index,int n){
+    Symbol * newarr = (Symbol *) malloc((n - 1) * sizeof(Symbol));
+    Symbol s;
+    int i = 0;
+    int count = 0;
+    while(i < n){
+        if(i != index){
+            s = arr[count];
+            s.index = count;
+            newarr[count] = s;
+            count++;
+        }
+        i++;
+    }
+    s = newarr[0];
+    (*s.len)--;
+    free(arr);
+    return newarr;
+}
+
+
 
 int main(int argc,char ** args) {
     if(argc != 2){
@@ -199,6 +280,7 @@ int main(int argc,char ** args) {
 
     int assci; // ascci number position
     char character; // char value to save
+    int index;
     // creamos nuestra list symbols
     Symbol * list = NULL;
     Symbol * symbol = NULL;
@@ -210,20 +292,17 @@ int main(int argc,char ** args) {
             symbol->frequency++;
         } else {
             symbol = last(list);
-            add(&list, new(character,symbol != NULL ? symbol->index + 1 : 0));
+            index = symbol != NULL ? symbol->index + 1 : 0;
+            add(&list, new(character,index,assci));
             symbol = NULL;
         }
     }
-
-    int len = *(list->len);
-    printf("\nlongitud del arreglo: %d\n",len);
     Symbol * simbolos = toArray(list);
-    for(int i = 0; i < len; i++){
-        Symbol s = simbolos[i];
-        printf("%d - Caracter: '%c' => Frecuencia: %u\n",s.index,s.character,s.frequency);
-    }
+    int n =  *simbolos[0].len;
+    quickSort(simbolos,0,n - 1);
+    printArray(simbolos,n);
+    // imprimimos nuestra lista
 
-    //mergeSort(simbolos,len);
 
     return 0;
 }
