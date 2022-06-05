@@ -2,24 +2,13 @@
 #include <stdlib.h>
 
 
-/**
- * Struct para el arbol
- */
-
-typedef struct node {
-    char caracter;
-    int frecuencia; // la suam de sus pesos,
-    int assci;
-    struct node * izq; // hijo izquierdo
-    struct node * der; // hijo derecho
-} Node;
 
 /**
  * Structs para el los caracteres
  */
 typedef struct symbol {
     // el caracgter en cuestion
-    char character;
+    unsigned char character;
     int ascii;
     // cuantas veces a parce este caraccter en el archivo
     int frequency;
@@ -30,9 +19,18 @@ typedef struct symbol {
     // para saber si este nodo ya sido contabilizadp
     struct symbol * next; // node next list element
     struct symbol * prev; // node next list element
-    Node * nodo;
+    // tambien nos funcionara como arbol
+    struct symbol * izqUno, * derCero;
     int index;
 } Symbol;
+
+typedef struct tabla {
+    unsigned char caracter;
+    unsigned long int bits; // aqui guardamos la codificacion
+    unsigned char nbits; // numero de bists de la codificacion,
+    struct tabla * next;
+} Tabla;
+
 
 /**
  * Crea un nuevo nodo de la lista
@@ -244,6 +242,82 @@ Symbol * generarListaSimbolos(char * path){
     return list;
 }
 
+int insertarOrden(Symbol ** head,Symbol * nodoInsertar){
+    if(*head == NULL){
+        *head = nodoInsertar;
+        (*head)->next = NULL;
+        return 1;
+    }
+    Symbol * nav,* element;
+    // buscamos el elemento dentro de las frecuencias
+    while(nav && nav->frequency < nodoInsertar->frequency){
+        element = nav; // guardamos el elemento que estemos recorriendo
+        nav = nav->next; // pasamos al siguiente nodo
+    }
+    // insertamos el elemento
+    nodoInsertar->next = nav;
+    if(element){
+        // insertar nodo
+        element->next = nodoInsertar;
+    } else {
+        // nuevo nodo
+        *head = nodoInsertar;
+    }
+
+}
+
+Symbol * maketree(Symbol ** raiz){
+    Symbol * arbol = *raiz;
+    Symbol * nuevoNodo = NULL;
+    // mientras aun tenganos minimo dos nodos
+    while (arbol && arbol->next){
+        nuevoNodo = (Symbol *) malloc(sizeof(Symbol));
+        nuevoNodo->character = 0; // no tiene una letra en especfico
+        nuevoNodo->izqUno = arbol; // el nodo actual es el hijo izquierdo con carga de uno
+        arbol = arbol->next; // recorremos el arbol
+        nuevoNodo->derCero = arbol; // el siguiente es el hijo derecho
+        // sumamos las frecuencias los nodos en el nuevo nodo
+        nuevoNodo->frequency = nuevoNodo->izqUno->frequency + nuevoNodo->derCero->frequency;
+        // por ultimo lo insertamos en el arbol en orden
+        insertarOrden(raiz,nuevoNodo);
+    }
+}
+
+void insertarTabla(unsigned char c,int l,int v,Tabla ** t){
+    Tabla * nuevaTabla,* nav,* element;
+    nuevaTabla = (Tabla *) malloc(sizeof(Tabla));
+    nuevaTabla->caracter = c;
+    nuevaTabla->bits = v;
+    nuevaTabla->nbits = 1;
+    if(*t == NULL){
+        *t = nuevaTabla;
+        (*t)->next = NULL;
+    } else {
+        nav = *t;
+        element = NULL;
+        // nos localizamos en medio
+        while(nav && nav->caracter < nuevaTabla->caracter){
+            element = nav;
+            nav = nav->next;
+        }
+        // insertamos el elemento
+        nuevaTabla->next = nav;
+        if(element != NULL){
+            element->next = nuevaTabla;
+        } else {
+            *t = nuevaTabla;
+        }
+    }
+}
+
+void crearTabla(Symbol * s,int l,int v,Tabla ** t) {
+    if (s->izqUno)
+        crearTabla(s->izqUno, l + 1, (v << 1) | 1,t);
+    if (s->derCero)
+        crearTabla(s->derCero, l + 1, v << 1,t);
+    if(!s->izqUno && !s->derCero)
+        insertarTabla(s->character,l,v,t);
+}
 
 
 int main(int argc,char ** args) {
@@ -266,6 +340,10 @@ int main(int argc,char ** args) {
     quickSort(simbolos,0,n - 1);
     Symbol * listaOrdenada = toList(simbolos,n);
     printList(listaOrdenada);
+    maketree(&listaOrdenada);
+    Tabla * tablaCodigos = NULL;
+    crearTabla(listaOrdenada,0,0,&tablaCodigos);
+
     return 0;
 }
 
