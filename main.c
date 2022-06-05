@@ -18,7 +18,7 @@ typedef struct symbol {
     char codficacion[8];
     // para saber si este nodo ya sido contabilizadp
     struct symbol * next; // node next list element
-    struct symbol * prev; // node next list element
+    struct symbol * prev; // node prev list element
     // tambien nos funcionara como arbol
     struct symbol * izqUno, * derCero;
     int index;
@@ -43,6 +43,8 @@ Symbol * new(char c,int index,int  ascii){
     s->next = NULL;
     s->prev = NULL;
     s->len = NULL;
+    s->izqUno = NULL;
+    s->derCero = NULL;
     s->frequency = 1;
     s->character = c;
     s->ascii = ascii;
@@ -83,6 +85,8 @@ short int add(Symbol ** list,Symbol * s){
     // nos vamos al utlimo nodo
     Symbol * l = last(* list);
     l->next = s;
+    s->izqUno = NULL;
+    s->derCero = NULL;
     // sumamos uno a la longitud y asignamos la direccion de memoria al siguiente nodo (para que sea el mismo contador en memoria)
     (*l->len)++;
     l->next->len = l->len;
@@ -239,6 +243,7 @@ Symbol * generarListaSimbolos(char * path){
             symbol = NULL;
         }
     }
+    fclose(file);
     return list;
 }
 
@@ -249,6 +254,7 @@ int insertarOrden(Symbol ** head,Symbol * nodoInsertar){
         return 1;
     }
     Symbol * nav,* element;
+    nav = *head;
     // buscamos el elemento dentro de las frecuencias
     while(nav && nav->frequency < nodoInsertar->frequency){
         element = nav; // guardamos el elemento que estemos recorriendo
@@ -258,26 +264,40 @@ int insertarOrden(Symbol ** head,Symbol * nodoInsertar){
     nodoInsertar->next = nav;
     if(element){
         // insertar nodo
+        nodoInsertar->index = element->index + 1;
         element->next = nodoInsertar;
+        element->index--;
     } else {
         // nuevo nodo
         *head = nodoInsertar;
     }
-
 }
+
+void recorrerPreorden(Symbol * s){
+    if(s == NULL)
+        return;
+    printf("Frecuencia: %d\n",s->frequency);
+    recorrerPreorden(s->izqUno);
+    recorrerPreorden(s->derCero);
+}
+
 
 Symbol * maketree(Symbol ** raiz){
     Symbol * arbol = *raiz;
     Symbol * nuevoNodo = NULL;
     // mientras aun tenganos minimo dos nodos
     while (arbol && arbol->next){
+        //printf("index: %d | frecuencia: %d | assci: %d\n",arbol->index,arbol->frequency,arbol->character);
         nuevoNodo = (Symbol *) malloc(sizeof(Symbol));
         nuevoNodo->character = 0; // no tiene una letra en especfico
         nuevoNodo->izqUno = arbol; // el nodo actual es el hijo izquierdo con carga de uno
         arbol = arbol->next; // recorremos el arbol
         nuevoNodo->derCero = arbol; // el siguiente es el hijo derecho
+        arbol = arbol->next;
         // sumamos las frecuencias los nodos en el nuevo nodo
         nuevoNodo->frequency = nuevoNodo->izqUno->frequency + nuevoNodo->derCero->frequency;
+        //recorrerPreorden(nuevoNodo);
+        //recorrerPreorden(nuevoNodo);
         // por ultimo lo insertamos en el arbol en orden
         insertarOrden(raiz,nuevoNodo);
     }
@@ -310,14 +330,52 @@ void insertarTabla(unsigned char c,int l,int v,Tabla ** t){
     }
 }
 
-void crearTabla(Symbol * s,int l,int v,Tabla ** t) {
-    if (s->izqUno)
-        crearTabla(s->izqUno, l + 1, (v << 1) | 1,t);
-    if (s->derCero)
-        crearTabla(s->derCero, l + 1, v << 1,t);
-    if(!s->izqUno && !s->derCero)
-        insertarTabla(s->character,l,v,t);
+Tabla * buscarCaracter(Tabla * t,unsigned char c){
+    Tabla * nav = t;
+    while(nav && nav->caracter != c){
+        nav = nav->next;
+    }
+    return nav;
 }
+
+void crearTabla(Symbol ** arbol,int l,int v,Tabla ** t) {
+    Symbol * s = *arbol;
+    if (s->izqUno) crearTabla(&s->izqUno, l + 1, (v << 1) | 1,t);
+    if (s->derCero) crearTabla(&s->derCero, l + 1, v << 1,t);
+    if(!s->izqUno && !s->derCero) insertarTabla(s->character,l,v,t);
+}
+
+void codificar(const char * path,const char * destiny,Tabla ** tabla){
+    FILE * file = fopen(path,"r");
+    FILE * compress = fopen(destiny,"wb");
+    unsigned char c;
+    unsigned int dword = 0;
+    int nbits = 0;
+    while((c = fgetc(file)) && !feof(file)){
+        Tabla * t = buscarCaracter(*tabla,c);
+        while(nbits + t->nbits > 32){
+            c = dword >> (nbits - 8);
+            fwrite(&c,sizeof(char),1,compress);
+            nbits -= 8;
+        }
+        dword <<= t->nbits; // se hace espacio para el nuevo caracter
+        dword |= t->nbits; // insertar nuevo caracgter
+        nbits += 8;
+    }
+
+    while (nbits > 0){
+        if(nbits >= 0){
+            c = dword >> (nbits - 8);
+        } else {
+            c = dword << (8 - nbits);
+        }
+        fwrite(&c,sizeof(char),1,compress);
+        nbits -= 8;
+    }
+    fclose(compress);
+    fclose(file);
+}
+
 
 
 int main(int argc,char ** args) {
@@ -338,12 +396,11 @@ int main(int argc,char ** args) {
     Symbol * simbolos = toArray(list);
     int n =  *simbolos[0].len;
     quickSort(simbolos,0,n - 1);
-    Symbol * listaOrdenada = toList(simbolos,n);
-    printList(listaOrdenada);
-    maketree(&listaOrdenada);
-    Tabla * tablaCodigos = NULL;
-    crearTabla(listaOrdenada,0,0,&tablaCodigos);
-
+    Symbol * arbol = toList(simbolos,n);
+    printList(arbol);
+    maketree(&arbol);
+    Tabla * codigos = NULL;
+    crearTabla(&arbol,0,0,&codigos);
     return 0;
 }
 
