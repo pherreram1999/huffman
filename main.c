@@ -1,6 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
+/**
+ * Struct para el arbol
+ */
+
+typedef struct node {
+    char caracter;
+    int frecuencia; // la suam de sus pesos,
+    int assci;
+    struct node * izq; // hijo izquierdo
+    struct node * der; // hijo derecho
+} Node;
+
 /**
  * Structs para el los caracteres
  */
@@ -12,24 +25,14 @@ typedef struct symbol {
     int frequency;
     // levar contando cuantos nodos vamos econtrando
     int * len;
+    // llevar el codigo coficado
+    char codficacion[8];
     // para saber si este nodo ya sido contabilizadp
     struct symbol * next; // node next list element
     struct symbol * prev; // node next list element
+    Node * nodo;
     int index;
 } Symbol;
-
-/**
- * Struct para el arbol
- */
-
-typedef struct node {
-    Symbol * simbolo; // del padre que proviene
-    int peso; // la suam de sus pesos,
-    int bit;
-    int busy;
-    struct node * izq; // hijo izquierdo
-    struct node * der; // hijo derecho
-} Node;
 
 /**
  * Crea un nuevo nodo de la lista
@@ -120,6 +123,18 @@ void printArray(Symbol * simbolos,int n){
     }
 }
 
+void printList(Symbol * nav){
+    if(nav == NULL){
+        printf("\nLista vacia :O\n");
+        return;
+    }
+    printf("Lista de longitud: %d => \n",*(nav->len));
+    while(nav != NULL){
+        printf("%d - assci: %d \t|\tFrencuencia: %d \t|\t caracter: '%c'\n",nav->index,nav->ascii,nav->frequency,nav->character);
+        nav = nav->next;
+    }
+}
+
 /**
  * Convierte una lista en array
  * @param nav
@@ -136,6 +151,38 @@ Symbol * toArray(Symbol * nav){
         }
     }
     return arr;
+}
+
+/**
+ * de aun arreglo general la lista de nodos
+ * @param simbolos
+ * @param n
+ * @return
+ */
+Symbol * toList(Symbol * simbolos,int n){
+    for(int i = 0; i < n; i++){
+        Symbol * s = &simbolos[i];
+        if(i == 0){
+            s->prev = NULL;
+        } else {
+            s->prev = &(simbolos[i - 1]);
+        }
+        s->index = i;
+        s->next = &(simbolos[i + 1]);
+    }
+    Symbol * penultimo = &simbolos[n - 1];
+    penultimo->next = NULL;
+    return &simbolos[0];
+}
+
+void dispose(Symbol * list){
+    Symbol * l = last(list);
+    while(l != NULL){
+        Symbol  * prev = l->prev;
+        prev->next = NULL;
+        free(l);
+        l = prev;
+    }
 }
 
 
@@ -217,10 +264,8 @@ int main(int argc,char ** args) {
     Symbol * simbolos = toArray(list);
     int n =  *simbolos[0].len;
     quickSort(simbolos,0,n - 1);
-    printArray(simbolos,n);
-    // imprimimos nuestra lista
-
-
+    Symbol * listaOrdenada = toList(simbolos,n);
+    printList(listaOrdenada);
     return 0;
 }
 
