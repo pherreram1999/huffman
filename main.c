@@ -145,37 +145,28 @@ Symbol * generarListaSimbolos(char * path,int * contador){
 }
 
 int insertarOrden(Symbol ** head,Symbol * nodoInsertar){
-    Symbol * nav = *head;
-    Symbol * nodoActual = NULL;
     if(*head == NULL){
         *head = nodoInsertar;
-        return 0;
+        (*head)->next = NULL;
+        return 1;
     }
-
-    while(nav->next != NULL && nav->frequency < nodoInsertar->frequency){
-        nav = nav->next;
+    Symbol * nav,* element;
+    nav = *head;
+    // buscamos el elemento dentro de las frecuencias
+    while(nav && nav->frequency < nodoInsertar->frequency){
+        element = nav; // guardamos el elemento que estemos recorriendo
+        nav = nav->next; // pasamos al siguiente nodo
     }
-
-    if(nav->frequency <= nodoInsertar->frequency){
-        Symbol * prev = nav->prev;
-        nodoInsertar->prev = prev;
-        nodoInsertar->next = nav;
+    // insertamos el elemento
+    nodoInsertar->next = nav;
+    if(element){
+        // insertar nodo
+        element->next = nodoInsertar;
     } else {
-        nav->next = nodoInsertar;
+        // nuevo nodo
+        *head = nodoInsertar;
     }
-
 }
-
-Symbol * pop(Symbol * nav){
-    while (nav->next->next != NULL){
-        nav = nav->next;
-    }
-    Symbol * prev = nav;
-    nav = nav->next;
-    prev->next = NULL;
-    return nav;
-}
-
 
 
 int esHoja(Symbol * nodo){
@@ -186,9 +177,8 @@ int esHoja(Symbol * nodo){
 
 void recorrerPreorden(Symbol * s){
     if(s != NULL){
-        if(esHoja(s)){
-            printf("Frecuencia: %d  \t|\t Caracter: %c\n",s->frequency,s->character);
-        }
+        printf("Frecuencia: %d  \t|\t Caracter: %c\n",s->frequency,s->character);
+
         recorrerPreorden(s->izqUno);
         recorrerPreorden(s->derCero);
     }
@@ -221,26 +211,27 @@ void sacarNodo(Symbol * nodo){
 }
 
 Symbol * generalArbol(Symbol ** lista){
-    while((*lista)->next != NULL){
-        Symbol * nodoIzq = (*lista);
-        Symbol * nodoDer = (*lista)->next;
-        *lista = (*lista)->next->next;
-        nodoIzq->next = NULL;
-        nodoDer->next = NULL;
-
-        // sacamos los nodos de la lista
-        // creamos un nuevo nodo como padre de los primeros
-        Symbol * padre = (Symbol *) malloc(sizeof(Symbol));
-        padre->izqUno = nodoIzq;
-        padre->derCero = nodoDer;
-        padre->ascii = 0;
-        padre->next = NULL;
-        padre->frequency = padre->izqUno->frequency + padre->derCero->frequency;
-        padre->character = 0; // no es un caracter real
-        //printList(*lista);
-        insertarOrden(&(*lista),padre);
-    }
-    return *lista;
+    if((*lista)->next == NULL)
+        return *lista;
+    // tomamos los dos primeros nodos
+    Symbol * nodoIzq = *lista;
+    Symbol * nodoDer = nodoIzq->next;
+    // sacamos los nodos de la lista
+    *lista = nodoDer->next;
+    // creamos un nuevo nodo como padre de los primeros
+    Symbol * padre = (Symbol *) malloc(sizeof(Symbol));
+    padre->izqUno = nodoIzq;
+    padre->derCero = nodoDer;
+    padre->frequency = padre->izqUno->frequency + padre->derCero->frequency;
+    padre->character = 0; // no es un caracter real
+    nodoDer->next = NULL; // quitamos conexion
+    nodoIzq->next = NULL; // qutiamos conexion
+    insertarOrden(&(*lista),padre);
+    // insertamos el nuevo nodo
+    // qutiamos un elemnto de nuestra lista
+    // se vuelve a repetir el proceso
+    Symbol * l = generalArbol(lista);
+    return l;
 }
 
 
@@ -251,22 +242,6 @@ void printTable(Tabla * t){
         nav = nav->next;
     }
 }
-
-void ordenar(Symbol ** lista){
-    Symbol * nav, *listaTmp;
-    if(*lista == NULL)
-        return;
-    listaTmp = *lista;
-    *lista = NULL;
-    while(listaTmp != NULL){
-        nav = listaTmp;
-        listaTmp = nav->next;
-        nav->next = NULL;
-        insertarOrden(lista,nav);
-    }
-
-}
-
 
 /**
  * de aun arreglo general la lista de nodos
@@ -330,6 +305,9 @@ int main(int argc,char ** args) {
     Symbol * arr = toArray(list,noElementos);
     quickSort(arr,0,noElementos - 1);
     list = toList(arr,noElementos);
+ //   printList(list);
+    Symbol * arbol = generalArbol(&list);
+    recorrerPreorden(arbol);
     return 0;
 }
 
