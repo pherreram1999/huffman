@@ -3,8 +3,50 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <sys/resource.h>
+#include <sys/time.h>
 #define MAX_TREE_HT 50
+#define MEGA 1.0e-6
+
+/**
+ * Objecto para almacenar nuestras mediciones
+ */
+typedef struct tiempo {
+    // varibles usadas por time.h
+    struct rusage buffer;
+    struct timeval tp;
+    struct timezone tzp;
+    // varaibles para guardar el tiempo
+    double usertime;
+    double systime;
+    double walltime;
+} Tiempo;
+
+/**
+ * caputra un tiempo para posteriormente ser comparado
+ * @param tiempo struct de tipo tiempo
+ */
+void medirTiempo(Tiempo * tiempo){
+    getrusage(RUSAGE_SELF,&tiempo->buffer);
+    gettimeofday(&tiempo->tp,&tiempo->tzp);
+    tiempo->usertime = (double) tiempo->buffer.ru_utime.tv_sec + MEGA * tiempo->buffer.ru_utime.tv_usec;
+    tiempo->systime = (double) tiempo->buffer.ru_stime.tv_sec + MEGA * tiempo->buffer.ru_stime.tv_usec;
+    tiempo->walltime = (double) tiempo->tp.tv_sec + MEGA * tiempo->tp.tv_usec;
+}
+
+/**
+ * Recibe dos tiempos medidos y retorna sus tiempos de ejecucion
+ * @param t1
+ * @param t2
+ */
+void imprimirTiempos(Tiempo * t0,Tiempo * t1){
+    printf("\n");
+    printf("real (Tiempo total)  %.10f s\n",  t1->walltime - t0->walltime);
+    printf("user (Tiempo de procesamiento en CPU) %.10f s\n",  t1->usertime - t0->usertime);
+    printf("sys (Tiempo en acciónes de E/S)  %.10f s\n",  t1->systime - t0->systime);
+    printf("CPU/Wall   %.10f %% \n",100.0 * (t1->usertime - t0->usertime + t1->systime - t0->systime) / (t1->walltime - t0->walltime));
+    printf("\n");
+}
 
 typedef struct symbol {
     // el caracgter en cuestion
@@ -328,7 +370,7 @@ void imprimirCodigos(struct Caracter * simbolo, int arr[], int top) {
 
 FILE * crearArchivo(char * path){
     FILE * fptr = fopen(path,"w");
-    fprintf(fptr,"\0"); // imprimimos NADA para vaciar el archivo si ya existia
+    fprintf(fptr,""); // imprimimos NADA para vaciar el archivo si ya existia
     fclose(fptr);
     // ahora lo abrimos en append mode
     return fopen(path,"a");
@@ -401,6 +443,11 @@ int main(int argc,char ** args) {
     char * filename = args[1];
     char * path = args[2];
     printf("\nfilename: %s\n",filename);
+
+    Tiempo t1,t2;
+
+    medirTiempo(&t1);
+
     Symbol * list = generarListaSimbolos(filename);
     if(list == NULL){
         printf("\nNO fue posible generar la lista, verique el path\n");
@@ -426,8 +473,12 @@ int main(int argc,char ** args) {
         appendCodigo((char)c,arbol,arr,top,destino);
     }
     fclose(destino);
+    medirTiempo(&t2);
 
     printf("Compresion terminada :D\n");
-    printf("Archivo comprimido: %s",path);
+    printf("Archivo comprimido: %s\n",path);
+
+    printf("\n------ tiempos -----\n");
+    imprimirTiempos(&t1,&t2);
     return 0;
 }
