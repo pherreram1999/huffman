@@ -326,14 +326,22 @@ void imprimirCodigos(struct Caracter * simbolo, int arr[], int top) {
     }
 }
 
-FILE * crearArchivoDiccionario(){
-    FILE * fptr = fopen("diccionario.txt","w");
+FILE * crearArchivo(char * path){
+    FILE * fptr = fopen(path,"w");
     fprintf(fptr,"\0"); // imprimimos NADA para vaciar el archivo si ya existia
     fclose(fptr);
     // ahora lo abrimos en append mode
-    return fopen("diccionario.txt","a");
+    return fopen(path,"a");
 }
 
+
+/**
+ * Guarda los codigos en el puntero de archivo que nos pase
+ * @param simbolo
+ * @param arr
+ * @param top
+ * @param archivo
+ */
 void guardarCodigos(struct Caracter * simbolo, int arr[], int top,FILE * archivo){
     if (simbolo->izq) {
         arr[top] = 0;
@@ -350,9 +358,34 @@ void guardarCodigos(struct Caracter * simbolo, int arr[], int top,FILE * archivo
         }
         fprintf(archivo,"\n");
         //printArray(arr, top);
-
     }
 }
+
+/**
+ * Agrega el codigo binario la letra del codigo en puntero que nos pasen
+ * @param letra
+ * @param simbolo
+ * @param arr
+ * @param top
+ * @param archivo
+ */
+void appendCodigo(char s,struct Caracter * simbolo, int arr[], int top,FILE * archivo){
+    if (simbolo->izq) {
+        arr[top] = 0;
+        appendCodigo(s,simbolo->izq, arr, top + 1,archivo);
+    }
+    if (simbolo->der) {
+        arr[top] = 1;
+        appendCodigo(s,simbolo->der, arr, top + 1,archivo);
+    }
+    if (esHoja(simbolo) && simbolo->simbolo == s) {
+        for(int i = 0; i < top; i++){
+            fprintf(archivo,"%d",arr[i]);
+        }
+    }
+}
+
+
 
 
 
@@ -360,12 +393,13 @@ void guardarCodigos(struct Caracter * simbolo, int arr[], int top,FILE * archivo
 
 int main(int argc,char ** args) {
 
-    if(argc != 2){
-        printf("\nPor favor propociona el path del archivo :|\n");
+    if(argc != 3){
+        printf("\nPor favor propociona el path del archivo y un nombre :|\n");
         exit(1);
     }
 
     char * filename = args[1];
+    char * path = args[2];
     printf("\nfilename: %s\n",filename);
     Symbol * list = generarListaSimbolos(filename);
     if(list == NULL){
@@ -380,15 +414,20 @@ int main(int argc,char ** args) {
     struct Caracter * arbol = construirArbol(simbolos, frecuencias, longitud);
     int arr[MAX_TREE_HT], top = 0;
 
+    FILE * diccionario = crearArchivo("diccionario.txt");
+    guardarCodigos(arbol, arr, top, diccionario);
+    fclose(diccionario);
+    // vamos a codificar el mensaje en nuevo archivo
 
-    //guardarCodigos(arbol, arr, top,crearArchivoDiccionario());
+    FILE * archivo = fopen(filename,"r");
+    int c;
+    FILE * destino = crearArchivo(path);
+    while((c = fgetc(archivo)) != EOF){
+        appendCodigo((char)c,arbol,arr,top,destino);
+    }
+    fclose(destino);
 
-
-    /*printf(" Char | Huffman code ");
-    printf("\n--------------------\n");
-    imprimirCodigos(arbol, arr, top);*/
-    // guaradamos el diccionar
-    guardarCodigos(arbol,arr,top,crearArchivoDiccionario());
-
+    printf("Compresion terminada :D\n");
+    printf("Archivo comprimido: %s",path);
     return 0;
 }
