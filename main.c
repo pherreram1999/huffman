@@ -1,94 +1,94 @@
+// Huffman Coding in C
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_TREE_HT 50
 
-/**
- * Structs para el los caracteres
- */
 typedef struct symbol {
     // el caracgter en cuestion
     unsigned char character;
     int ascii;
     // cuantas veces a parce este caraccter en el archivo
     int frequency;
+    // levar contando cuantos nodos vamos econtrando
+    int * len;
     // llevar el codigo coficado
-    char codficacion[15];
+    //char codficacion[8];
     // para saber si este nodo ya sido contabilizadp
-    struct symbol * next, * prev; // node next list element
+    struct symbol * next; // node next list element
+    struct symbol * prev; // node prev list element
     // tambien nos funcionara como arbol
     struct symbol * izqUno, * derCero;
+    int index;
 } Symbol;
 
-typedef struct tabla {
-    unsigned char caracter;
-    char codigo[15];
-    unsigned long int bits; // aqui guardamos la codificacion
-    unsigned char nbits; // numero de bists de la codificacion,
-    struct tabla * next;
-} Tabla;
+typedef struct codigo {
+    char codigo;
 
+} Codigo;
 
 /**
- * Crea un nuevo nodo de la lista
- * @param c
- * @return
+ * Almacena los caracteres y fungue como arbol
  */
-Symbol * nuevoNodo(int ascii){
+struct Caracter {
+    char simbolo;
+    unsigned freq;
+    char * codigo;
+    // hijos del nodo
+    struct Caracter * izq, * der;
+};
+
+/**
+ * Nos ayuda a generar los codigos
+ */
+struct MinHeap {
+    unsigned size;
+    unsigned capacity;
+    struct Caracter **array;
+};
+
+
+struct Caracter * crearCaracter(char item, unsigned freq) {
+    struct Caracter *temp = (struct Caracter *)malloc(sizeof(struct Caracter));
+
+    temp->codigo = NULL;
+    temp->izq = temp->der = NULL;
+    temp->simbolo = item;
+    temp->freq = freq;
+
+    return temp;
+}
+
+// Create min heap
+struct MinHeap * createMinH(unsigned capacity) {
+    struct MinHeap *minHeap = (struct MinHeap *)malloc(sizeof(struct MinHeap));
+
+    minHeap->size = 0;
+
+    minHeap->capacity = capacity;
+
+    minHeap->array = (struct Caracter **) malloc(minHeap->capacity * sizeof(struct Caracter *));
+    return minHeap;
+}
+
+Symbol * new(char c,int index,int  ascii){
     Symbol * s = (Symbol *) malloc(sizeof(Symbol));
+    s->index = index;
     s->next = NULL;
+    s->prev = NULL;
+    s->len = NULL;
     s->izqUno = NULL;
     s->derCero = NULL;
     s->frequency = 1;
-    s->character =  (unsigned char) ascii;
+    s->character = c;
     s->ascii = ascii;
+
     return s;
 }
 
-
-/**
- * Retorna el ultimo nodo de una lista
- * @param nav
- * @return
- */
-Symbol * getUltimoElemento(Symbol * nav){
-    if(nav == NULL)
-        return NULL;
-    while(nav->next != NULL){
-        nav = nav->next;
-    }
-    return nav;
-}
-
-/**
- * Agregar un nuevo simbolo a la lista
- * @param list = lista raiz
- * @param c = nuevo simbolo (char)
- * @return = retorna 1 si se inserto correctamente, 0 si no.
- */
-short int insertarEnLista(Symbol ** list,Symbol * s){
-    // si el padre es null, entonces, es nuestro primer elementro
-    if(*list == NULL){
-        * list = s;
-        // como es nuestro primer nodo, inciado la longitud de arreglo en 1
-        return 1;
-    }
-    // nos vamos al utlimo nodo
-    Symbol * l = getUltimoElemento(*list);
-    s->prev = l;
-    l->next = s;
-
-    // sumamos uno a la longitud y asignamos la direccion de memoria al siguiente nodo (para que sea el mismo contador en memoria)
-    return 1;
-}
-
-/**
- * Busca el nodo de un simbolo (char) en la lista y lo regresa
- * @param list = la lista
- * @param c = el char que se busca
- * @return = regresa el nodo, si no lo encuentra retorna NULL;
- */
-Symbol * buscarCaracter(Symbol ** list, unsigned char c){
+Symbol * search(Symbol ** list,char c){
     if(*list == NULL)
         return NULL;
     Symbol * nav = *list;
@@ -102,27 +102,37 @@ Symbol * buscarCaracter(Symbol ** list, unsigned char c){
     return NULL;
 }
 
-void printList(Symbol * nav){
-    if(nav == NULL){
-        printf("\nLista vacia :O\n");
-        return;
-    }
-    printf("<---------->\n");
-    while(nav != NULL){
-        printf("assci: %d \t|\tFrencuencia: %d \t|\t caracter: '%c'\n",nav->ascii,nav->frequency,nav->character);
+Symbol * last(Symbol * nav){
+    if(nav == NULL)
+        return NULL;
+    while(nav->next != NULL){
         nav = nav->next;
     }
+    return nav;
 }
 
+short int add(Symbol ** list,Symbol * s){
+    // si el padre es null, entonces, es nuestro primer elementro
+    if(* list == NULL){
+        * list = s;
+        // como es nuestro primer nodo, inciado la longitud de arreglo en 1
+        (*list)->len = (int *) malloc(sizeof(int));
+        *(*list)->len = 1;
+        return 1;
+    }
+    // nos vamos al utlimo nodo
+    Symbol * l = last(* list);
+    l->next = s;
+    s->izqUno = NULL;
+    s->derCero = NULL;
+    // sumamos uno a la longitud y asignamos la direccion de memoria al siguiente nodo (para que sea el mismo contador en memoria)
+    (*l->len)++;
+    l->next->len = l->len;
+    s->prev = l;
+    return 1;
+}
 
-
-
-/**
- * Lee un archivo y genera una lista con la frecuencia decada una de los caracteres
- * @param path = directorio del archivo a leer
- * @return
- */
-Symbol * generarListaSimbolos(char * path,int * contador){
+Symbol * generarListaSimbolos(char * path){
     FILE * file = fopen(path,"r");
     if(file == NULL){
         printf("No fue posible abrir el archivo");
@@ -130,70 +140,29 @@ Symbol * generarListaSimbolos(char * path,int * contador){
     }
     Symbol * list = NULL;
     Symbol * symbol = NULL;
-    int ascii; // ascci number position
-    while((ascii = fgetc(file)) != EOF){
-        symbol = buscarCaracter(&list, ascii);
+    int assci; // ascci number position
+    char character; // char value to save
+    int index;
+    while((assci = fgetc(file)) != EOF){
+        character = (char) assci;
+        symbol = search(&list,character);
         if(symbol != NULL){
             symbol->frequency++;
         } else {
-            insertarEnLista(&list, nuevoNodo(ascii));
-            (*contador)++;
+            symbol = last(list);
+            index = symbol != NULL ? symbol->index + 1 : 0;
+            add(&list, new(character,index,assci));
+            symbol = NULL;
         }
     }
     fclose(file);
     return list;
 }
 
-int insertarOrden(Symbol ** head,Symbol * nodoInsertar){
-    if(*head == NULL){
-        *head = nodoInsertar;
-        (*head)->next = NULL;
-        return 1;
-    }
-    Symbol * nav,* element;
-    nav = *head;
-    // buscamos el elemento dentro de las frecuencias
-    while(nav && nav->frequency < nodoInsertar->frequency){
-        element = nav; // guardamos el elemento que estemos recorriendo
-        nav = nav->next; // pasamos al siguiente nodo
-    }
-    // insertamos el elemento
-    nodoInsertar->next = nav;
-    if(element){
-        // insertar nodo
-        element->next = nodoInsertar;
-    } else {
-        // nuevo nodo
-        *head = nodoInsertar;
-    }
-}
-
-
-int esHoja(Symbol * nodo){
-    if(nodo->izqUno == NULL && nodo->derCero == NULL)
-        return 1;
-    return 0;
-}
-
-void recorrerPreorden(Symbol * s){
-    if(s != NULL){
-        printf("Frecuencia: %d  \t|\t Caracter: %c\n",s->frequency,s->character);
-
-        recorrerPreorden(s->izqUno);
-        recorrerPreorden(s->derCero);
-    }
-}
-
-
-/**
- * Convierte una lista en array
- * @param nav
- * @return
- */
-Symbol * toArray(Symbol * nav,int n){
-    Symbol * arr = (Symbol * ) malloc( n * sizeof (Symbol));
-    for(int i = 0; i < n; i++){
-        arr[i] = *nav;
+char * convertirToSimbolos(Symbol * nav){
+    char * arr = (char * ) malloc( (*(nav->len)) * sizeof (char));
+    for(int i = 0; i < (*(nav->len)); i++){
+        arr[i] = nav->character;
         if(nav->next!=NULL){
             nav = nav->next;
         }else {
@@ -203,112 +172,223 @@ Symbol * toArray(Symbol * nav,int n){
     return arr;
 }
 
-
-
-void sacarNodo(Symbol * nodo){
-    Symbol * next = nodo->next;
-    nodo->next = NULL;
+void printArrSimb(Symbol * nav,char arr[]){
+    for(int i = 0; i < (*(nav->len)); i++)
+        printf("%c",arr[i]);
 }
 
-Symbol * generalArbol(Symbol ** lista){
-    if((*lista)->next == NULL)
-        return *lista;
-    // tomamos los dos primeros nodos
-    Symbol * nodoIzq = *lista;
-    Symbol * nodoDer = nodoIzq->next;
-    // sacamos los nodos de la lista
-    *lista = nodoDer->next;
-    // creamos un nuevo nodo como padre de los primeros
-    Symbol * padre = (Symbol *) malloc(sizeof(Symbol));
-    padre->izqUno = nodoIzq;
-    padre->derCero = nodoDer;
-    padre->frequency = padre->izqUno->frequency + padre->derCero->frequency;
-    padre->character = 0; // no es un caracter real
-    nodoDer->next = NULL; // quitamos conexion
-    nodoIzq->next = NULL; // qutiamos conexion
-    insertarOrden(&(*lista),padre);
-    // insertamos el nuevo nodo
-    // qutiamos un elemnto de nuestra lista
-    // se vuelve a repetir el proceso
-    Symbol * l = generalArbol(lista);
-    return l;
-}
-
-
-void printTable(Tabla * t){
-    Tabla * nav = t;
-    while(nav){
-        printf("Caracter: %c \t|\t codigo: %s\n",nav->caracter,nav->codigo);
-        nav = nav->next;
-    }
-}
-
-/**
- * de aun arreglo general la lista de nodos
- * @param simbolos
- * @param n
- * @return
- */
-Symbol * toList(Symbol * simbolos,int n){
-    for(int i = 0; i < n; i++){
-        Symbol * s = &simbolos[i];
-        if(i == 0){
-            s->prev = NULL;
-        } else {
-            s->prev = &(simbolos[i - 1]);
+int * convertirToFrencuencias(Symbol * nav){
+    int * arr = (int * ) malloc( (*(nav->len)) * sizeof (int));
+    for(int i = 0; i < (*(nav->len)); i++){
+        arr[i] = nav->frequency;
+        if(nav->next!=NULL){
+            nav = nav->next;
+        }else {
+            nav = nav;
         }
-        s->next = &(simbolos[i + 1]);
     }
-    Symbol * penultimo = &simbolos[n - 1];
-    penultimo->next = NULL;
-    return &simbolos[0];
+    return arr;
 }
 
-void swap(Symbol * a, Symbol * b){
-    Symbol aux = *a;
+void printArrfrec(Symbol * nav,int arr[]){
+    for(int i = 0; i < (*(nav->len)); i++)
+        printf("%d,",arr[i]);
+}
+// Function to swap
+void intercarbiarNodos(struct Caracter **a, struct Caracter **b) {
+    struct Caracter *t = *a;
     *a = *b;
-    *b = aux;
+    *b = t;
 }
 
-int partition(Symbol * simbolos,int start, int final){
-    Symbol  pivot = simbolos[final];
-    int i = (start - 1);
-    for(int j = start; j <= final - 1; j++){
-        if(simbolos[j].frequency < pivot.frequency){
-            i++;
-            swap(&simbolos[i],&simbolos[j]);
+// Heapify
+void minHeapify(struct MinHeap *minHeap, int idx) {
+    int smallest = idx;
+    int left = 2 * idx + 1;
+    int right = 2 * idx + 2;
+
+    if (left < minHeap->size && minHeap->array[left]->freq < minHeap->array[smallest]->freq)
+        smallest = left;
+
+    if (right < minHeap->size && minHeap->array[right]->freq < minHeap->array[smallest]->freq)
+        smallest = right;
+
+    if (smallest != idx) {
+        intercarbiarNodos(&minHeap->array[smallest], &minHeap->array[idx]);
+        minHeapify(minHeap, smallest);
+    }
+}
+
+// Check if size if 1
+int longitudEnUno(struct MinHeap *minHeap) {
+    return (minHeap->size == 1);
+}
+
+// Extract min
+struct Caracter *extractMin(struct MinHeap *minHeap) {
+    struct Caracter *temp = minHeap->array[0];
+    minHeap->array[0] = minHeap->array[minHeap->size - 1];
+
+    --minHeap->size;
+    minHeapify(minHeap, 0);
+
+    return temp;
+}
+
+// Insertion function
+void insertMinHeap(struct MinHeap *minHeap, struct Caracter *minHeapNode) {
+    ++minHeap->size;
+    int i = minHeap->size - 1;
+
+    while (i && minHeapNode->freq < minHeap->array[(i - 1) / 2]->freq) {
+        minHeap->array[i] = minHeap->array[(i - 1) / 2];
+        i = (i - 1) / 2;
+    }
+    minHeap->array[i] = minHeapNode;
+}
+
+void buildMinHeap(struct MinHeap *minHeap) {
+    int n = minHeap->size - 1;
+    int i;
+
+    for (i = (n - 1) / 2; i >= 0; --i)
+        minHeapify(minHeap, i);
+}
+
+int esHoja(struct Caracter *root) {
+    return !(root->izq) && !(root->der);
+}
+
+struct MinHeap *createAndBuildMinHeap(char item[], int freq[], int size) {
+    struct MinHeap *minHeap = createMinH(size);
+
+    for (int i = 0; i < size; ++i)
+        minHeap->array[i] = crearCaracter(item[i], freq[i]);
+
+    minHeap->size = size;
+    buildMinHeap(minHeap);
+
+    return minHeap;
+}
+
+struct Caracter * construirArbol(char item[], int freq[], int size) {
+    struct Caracter *left, *right, *top;
+    struct MinHeap *minHeap = createAndBuildMinHeap(item, freq, size);
+
+    while (!longitudEnUno(minHeap)) {
+        left = extractMin(minHeap);
+        right = extractMin(minHeap);
+
+        top = crearCaracter('$', left->freq + right->freq);
+
+        top->izq = left;
+        top->der = right;
+
+        insertMinHeap(minHeap, top);
+    }
+    return extractMin(minHeap);
+}
+
+
+
+void printArray(int arr[], int n) {
+    int i;
+    for (i = 0; i < n; ++i)
+        printf("%d", arr[i]);
+
+    printf("\n");
+}
+
+char * arrayToChar(int arr[], int n){
+    char * tmp = (char *) malloc(MAX_TREE_HT * sizeof(char));
+    tmp = "";
+    for (int i = 0; i < n; i++){
+        char simbolo =  (arr[i] + '0');
+        strcat(tmp,&simbolo);
+    }
+    return tmp;
+}
+
+
+void imprimirCodigos(struct Caracter * simbolo, int arr[], int top) {
+    if (simbolo->izq) {
+        arr[top] = 0;
+        imprimirCodigos(simbolo->izq, arr, top + 1);
+    }
+    if (simbolo->der) {
+        arr[top] = 1;
+        imprimirCodigos(simbolo->der, arr, top + 1);
+    }
+    if (esHoja(simbolo)) {
+
+        printf("  %c  | ",simbolo->simbolo);
+        printArray(arr,top);
+    }
+}
+
+FILE * crearArchivoDiccionario(){
+    FILE * fptr = fopen("diccionario.txt","w");
+    fprintf(fptr,"\0"); // imprimimos NADA para vaciar el archivo si ya existia
+    fclose(fptr);
+    // ahora lo abrimos en append mode
+    return fopen("diccionario.txt","a");
+}
+
+void guardarCodigos(struct Caracter * simbolo, int arr[], int top,FILE * archivo){
+    if (simbolo->izq) {
+        arr[top] = 0;
+        guardarCodigos(simbolo->izq, arr, top + 1,archivo);
+    }
+    if (simbolo->der) {
+        arr[top] = 1;
+        guardarCodigos(simbolo->der, arr, top + 1,archivo);
+    }
+    if (esHoja(simbolo)) {
+        fprintf(archivo,"%d=", simbolo->simbolo);
+        for(int i = 0; i < top; i++){
+            fprintf(archivo,"%d",arr[i]);
         }
+        fprintf(archivo,"\n");
+        //printArray(arr, top);
+
     }
-    swap(&simbolos[i + 1],&simbolos[final]);
-    return i + 1;
 }
 
-void quickSort(Symbol * simbolos,int start,int final){
-    if(start < final){
-        int pi = partition(simbolos,start,final);
-        quickSort(simbolos,start, pi - 1);
-        quickSort(simbolos,pi + 1,final);
-    }
-}
+
+
+// Print the array
 
 int main(int argc,char ** args) {
+
     if(argc != 2){
         printf("\nPor favor propociona el path del archivo :|\n");
         exit(1);
     }
-    char * filename = args[1];
 
+    char * filename = args[1];
     printf("\nfilename: %s\n",filename);
-    // creamos nuestra list symbols
-    int noElementos = 0;
-    Symbol * list = generarListaSimbolos(filename,&noElementos);
-    Symbol * arr = toArray(list,noElementos);
-    quickSort(arr,0,noElementos - 1);
-    list = toList(arr,noElementos);
- //   printList(list);
-    Symbol * arbol = generalArbol(&list);
-    recorrerPreorden(arbol);
+    Symbol * list = generarListaSimbolos(filename);
+    if(list == NULL){
+        printf("\nNO fue posible generar la lista, verique el path\n");
+        exit(1);
+    }
+
+    char * simbolos = convertirToSimbolos(list);
+    int * frecuencias = convertirToFrencuencias(list);
+    int longitud = *(list->len);
+
+    struct Caracter * arbol = construirArbol(simbolos, frecuencias, longitud);
+    int arr[MAX_TREE_HT], top = 0;
+
+
+    //guardarCodigos(arbol, arr, top,crearArchivoDiccionario());
+
+
+    /*printf(" Char | Huffman code ");
+    printf("\n--------------------\n");
+    imprimirCodigos(arbol, arr, top);*/
+    // guaradamos el diccionar
+    guardarCodigos(arbol,arr,top,crearArchivoDiccionario());
+
     return 0;
 }
-
-
